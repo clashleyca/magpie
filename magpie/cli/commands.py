@@ -5,11 +5,10 @@ from pathlib import Path
 
 import click
 
-from ..core.sqlite import get_connection
-from ..core.chroma import get_client, get_collection
-from ..books import db, vector, encoder
-from ..books import BookExtractor, BookEnricher
+from ..books import BookEnricher, BookExtractor, db, encoder, vector
 from ..books.display import format_book_list_item, format_raw_result
+from ..core.chroma import get_client, get_collection
+from ..core.sqlite import get_connection
 from ..sources import reddit
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
@@ -38,7 +37,9 @@ def add(source, model, force, verbose):
     if reddit_id and not force:
         existing = db.get_source_by_external_id(conn, reddit_id)
         if existing:
-            click.echo(f"Source already indexed (id={existing['id']}). Use --force to re-process.")
+            click.echo(
+                f"Source already indexed (id={existing['id']}). Use --force to re-process."
+            )
             return
 
     thread_data = _load_thread(source, reddit_id)
@@ -70,7 +71,9 @@ def add(source, model, force, verbose):
         for i, text in enumerate(comment_texts):
             extracted = extractor.extract(text)
             if extracted:
-                click.echo(f"[{i+1}/{len(comment_texts)}] Found: {[b.get('title') for b in extracted]}")
+                click.echo(
+                    f"[{i + 1}/{len(comment_texts)}] Found: {[b.get('title') for b in extracted]}"
+                )
             for book in extracted:
                 books_found.append((book, text))
     else:
@@ -89,7 +92,7 @@ def add(source, model, force, verbose):
     chroma_client = get_client()
     collection = get_collection(chroma_client)
 
-    for book_info, comment_text in books_found:
+    for book_info, _comment_text in books_found:
         title = (book_info.get("title") or "").strip()
         author = (book_info.get("author") or "").strip()
 
@@ -153,12 +156,15 @@ def add(source, model, force, verbose):
             books_skipped += 1
             click.echo(f"  ~ {final_title} (no description, stored but not searchable)")
 
-    click.echo(f"\nDone! Added {books_added} new books, {books_skipped} already indexed.")
+    click.echo(
+        f"\nDone! Added {books_added} new books, {books_skipped} already indexed."
+    )
 
 
 def _extract_reddit_id(source: str) -> str | None:
     """Extract Reddit thread ID from URL or filename."""
     import re
+
     match = re.search(r"/comments/([a-zA-Z0-9]+)", source)
     if match:
         return match.group(1)
@@ -206,7 +212,9 @@ def _load_thread(source: str, reddit_id: str | None = None) -> dict | None:
                 click.echo(f"Saved to cache: {cache_file}")
             return reddit.parse_reddit_json(raw_data)
 
-    click.echo("Could not load source. Provide a valid Reddit URL or JSON file.", err=True)
+    click.echo(
+        "Could not load source. Provide a valid Reddit URL or JSON file.", err=True
+    )
     return None
 
 
@@ -230,14 +238,19 @@ def search(query, limit, raw, verbose):
 
     if raw:
         click.echo(f"\nRaw results for: {query}\n")
-        raw_items = list(zip(
-            results["ids"][0],
-            results["documents"][0],
-            results["metadatas"][0],
-            results["distances"][0],
-        ))
+        raw_items = list(
+            zip(
+                results["ids"][0],
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+                strict=False,
+            )
+        )
         num_raw = len(raw_items)
-        for i, (doc_id, document, metadata, distance) in enumerate(reversed(raw_items)):
+        for i, (_doc_id, _document, metadata, distance) in enumerate(
+            reversed(raw_items)
+        ):
             similarity = 1 - distance
             rank = num_raw - i
             format_raw_result(rank, similarity, metadata)
@@ -247,13 +260,16 @@ def search(query, limit, raw, verbose):
     db.ensure_tables(conn)
     click.echo(f"\nResults for: {query}\n")
 
-    result_items = list(zip(
-        results["ids"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    ))
+    result_items = list(
+        zip(
+            results["ids"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+            strict=False,
+        )
+    )
     num_results = len(result_items)
-    for i, (doc_id, metadata, distance) in enumerate(reversed(result_items)):
+    for i, (_doc_id, metadata, distance) in enumerate(reversed(result_items)):
         book_id = metadata.get("book_id") or metadata.get("document_id")
         book = db.get_book(conn, book_id) if book_id else None
 
@@ -274,14 +290,20 @@ def search(query, limit, raw, verbose):
             sources = db.get_book_sources(conn, book_id)
             if sources:
                 for src in sources:
-                    source_url = src["url"] or f"https://reddit.com/comments/{src['external_id']}"
+                    source_url = (
+                        src["url"]
+                        or f"https://reddit.com/comments/{src['external_id']}"
+                    )
                     click.echo(f"   Reddit: {source_url}")
 
             amazon_url = book["amazon_url"]
             if not amazon_url:
                 import urllib.parse
+
                 search_query = f"{book['title']} {book['author'] or ''}".strip()
-                amazon_url = f"https://www.amazon.com/s?k={urllib.parse.quote(search_query)}"
+                amazon_url = (
+                    f"https://www.amazon.com/s?k={urllib.parse.quote(search_query)}"
+                )
             click.echo(f"   Amazon: {amazon_url}")
 
             click.echo(f"   Score: {similarity:.3f} | Status: {book['status']}")
@@ -289,7 +311,11 @@ def search(query, limit, raw, verbose):
 
 
 @cli.command("list")
-@click.option("--status", "filter_status", help="Filter by status (new, interested, reading, finished)")
+@click.option(
+    "--status",
+    "filter_status",
+    help="Filter by status (new, interested, reading, finished)",
+)
 @click.option("--limit", "-n", default=50, help="Number of books to show")
 def list_books(filter_status, limit):
     """List all indexed books."""
@@ -319,7 +345,7 @@ def list_books(filter_status, limit):
         click.echo(f"... and {total - limit} more. Use --limit to show more.")
 
 
-VALID_STATUSES = ['new', 'interested', 'reading', 'finished', 'dropped']
+VALID_STATUSES = ["new", "interested", "reading", "finished", "dropped"]
 
 
 @cli.command()
@@ -328,7 +354,10 @@ VALID_STATUSES = ['new', 'interested', 'reading', 'finished', 'dropped']
 def status(book_id, new_status):
     """Update a book's reading status."""
     if new_status not in VALID_STATUSES:
-        click.echo(f"Invalid status '{new_status}'. Valid options: {', '.join(VALID_STATUSES)}", err=True)
+        click.echo(
+            f"Invalid status '{new_status}'. Valid options: {', '.join(VALID_STATUSES)}",
+            err=True,
+        )
         return
 
     conn = get_connection()
@@ -339,7 +368,7 @@ def status(book_id, new_status):
         click.echo(f"Book {book_id} not found.", err=True)
         return
 
-    old_status = book['status']
+    old_status = book["status"]
     if old_status == new_status:
         click.echo(f"Book already has status '{new_status}'.")
         return
@@ -365,7 +394,9 @@ def list_sources():
     for src in sources:
         books = db.get_books_for_source(conn, src["id"])
         title = src["title"][:47] + "..." if len(src["title"]) > 50 else src["title"]
-        click.echo(f"{src['id']:<4} {src['external_id']:<12} {title:<50} {len(books):<6}")
+        click.echo(
+            f"{src['id']:<4} {src['external_id']:<12} {title:<50} {len(books):<6}"
+        )
 
 
 @cli.command("remove-source")
@@ -403,10 +434,9 @@ def remove_source(source_id, yes):
         if len(books_to_delete) > 10:
             click.echo(f"  ... and {len(books_to_delete) - 10} more")
 
-    if not yes:
-        if not click.confirm("\nProceed?"):
-            click.echo("Cancelled.")
-            return
+    if not yes and not click.confirm("\nProceed?"):
+        click.echo("Cancelled.")
+        return
 
     db.delete_book_sources_for_source(conn, source_id)
 

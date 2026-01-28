@@ -1,9 +1,7 @@
 """Tests for book handlers."""
 
-import pytest
-
+from magpie.books.enricher import _build_amazon_url, _extract_isbn
 from magpie.books.extractor import _filter_valid_books
-from magpie.books.enricher import _extract_isbn, _build_amazon_url
 
 
 class TestFilterValidBooks:

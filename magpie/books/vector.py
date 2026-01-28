@@ -1,10 +1,9 @@
 """Vector store operations for books."""
 
-from typing import Any, Optional
+import contextlib
+from typing import Any
 
 from chromadb.api.models.Collection import Collection
-
-from ..core.chroma import get_client, get_collection
 
 
 def add_book_chunk(
@@ -12,7 +11,7 @@ def add_book_chunk(
     book_id: int,
     text: str,
     embedding: list[float],
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Add a book chunk to the vector store."""
     doc_id = f"doc_{book_id}"
@@ -42,7 +41,5 @@ def search(
 
 def delete_book(collection: Collection, book_id: int) -> None:
     """Delete a book from the vector store."""
-    try:
+    with contextlib.suppress(Exception):
         collection.delete(ids=[f"doc_{book_id}"])
-    except Exception:
-        pass  # May not exist in vector store

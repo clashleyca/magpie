@@ -1,11 +1,11 @@
 """Reddit source adapter for fetching and parsing threads."""
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import requests
-
 
 # Reddit's public JSON endpoint (no auth required, rate limited)
 REDDIT_JSON_SUFFIX = ".json"
@@ -29,7 +29,9 @@ class RedditAdapter:
         return extract_comment_texts(content)
 
 
-def fetch_thread_json(url: str, user_agent: str = "Magpie/1.0") -> list[dict[str, Any]] | None:
+def fetch_thread_json(
+    url: str, user_agent: str = "Magpie/1.0"
+) -> list[dict[str, Any]] | None:
     """Fetch a Reddit thread as JSON.
 
     Appends .json to the URL and fetches the public JSON representation.
@@ -89,7 +91,9 @@ def parse_reddit_json(data: list[Any]) -> dict[str, Any]:
     }
 
 
-def _flatten_comments(comments: list[dict[str, Any]], depth: int = 0) -> Iterator[dict[str, Any]]:
+def _flatten_comments(
+    comments: list[dict[str, Any]], depth: int = 0
+) -> Iterator[dict[str, Any]]:
     """Recursively flatten the comment tree."""
     for item in comments:
         if item.get("kind") != "t1":

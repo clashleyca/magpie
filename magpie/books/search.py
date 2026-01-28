@@ -1,9 +1,9 @@
 """Search functionality for books."""
 
-from ..core.sqlite import get_connection
 from ..core.chroma import get_client, get_collection
+from ..core.sqlite import get_connection
+from . import db, encoder, vector
 from .models import Book, SearchResult
-from . import db, vector, encoder
 
 
 def search_books(query: str, limit: int = 10) -> list[SearchResult]:
@@ -30,10 +30,11 @@ def search_books(query: str, limit: int = 10) -> list[SearchResult]:
     db.ensure_tables(conn)
     search_results = []
 
-    for doc_id, metadata, distance in zip(
+    for _doc_id, metadata, distance in zip(
         results["ids"][0],
         results["metadatas"][0],
         results["distances"][0],
+        strict=False,
     ):
         book_id = metadata.get("book_id") or metadata.get("document_id")
         if not book_id:
@@ -49,10 +50,12 @@ def search_books(query: str, limit: int = 10) -> list[SearchResult]:
         sources = db.get_book_sources(conn, book_id)
         source_titles = [s["title"] for s in sources]
 
-        search_results.append(SearchResult(
-            book=book,
-            score=score,
-            source_titles=source_titles,
-        ))
+        search_results.append(
+            SearchResult(
+                book=book,
+                score=score,
+                source_titles=source_titles,
+            )
+        )
 
     return search_results

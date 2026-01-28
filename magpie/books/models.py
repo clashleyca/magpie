@@ -2,26 +2,26 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class Book:
     """A book in the magpie system."""
 
-    id: Optional[int] = None
+    id: int | None = None
     title: str = ""
-    author: Optional[str] = None
-    description: Optional[str] = None
-    summary: Optional[str] = None
-    google_books_id: Optional[str] = None
-    isbn: Optional[str] = None
-    cover_url: Optional[str] = None
-    amazon_url: Optional[str] = None
+    author: str | None = None
+    description: str | None = None
+    summary: str | None = None
+    google_books_id: str | None = None
+    isbn: str | None = None
+    cover_url: str | None = None
+    amazon_url: str | None = None
     status: str = "new"
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @classmethod
     def from_row(cls, row) -> "Book":
@@ -49,13 +49,13 @@ class Book:
 class Source:
     """A content source (Reddit thread, etc.)."""
 
-    id: Optional[int] = None
+    id: int | None = None
     source_type: str = "reddit"
     external_id: str = ""
     title: str = ""
-    url: Optional[str] = None
+    url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     @classmethod
     def from_row(cls, row) -> "Source":

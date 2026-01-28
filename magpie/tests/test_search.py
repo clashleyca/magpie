@@ -1,7 +1,5 @@
 """Tests for search functionality."""
 
-import pytest
-
 
 class TestSearchModule:
     """Tests for search module structure."""
@@ -9,6 +7,7 @@ class TestSearchModule:
     def test_search_books_import(self):
         """Should be able to import search_books."""
         from magpie.books.search import search_books
+
         assert callable(search_books)
 
     def test_search_result_model(self):

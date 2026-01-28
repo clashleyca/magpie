@@ -2,9 +2,6 @@
 
 import json
 import sqlite3
-from typing import Optional
-
-from ..core.sqlite import get_connection
 
 
 def _init_tables(conn: sqlite3.Connection) -> None:
@@ -89,14 +86,14 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
 def add_book(
     conn: sqlite3.Connection,
     title: str,
-    author: Optional[str] = None,
-    description: Optional[str] = None,
-    summary: Optional[str] = None,
-    google_books_id: Optional[str] = None,
-    isbn: Optional[str] = None,
-    cover_url: Optional[str] = None,
-    amazon_url: Optional[str] = None,
-    metadata: Optional[dict] = None,
+    author: str | None = None,
+    description: str | None = None,
+    summary: str | None = None,
+    google_books_id: str | None = None,
+    isbn: str | None = None,
+    cover_url: str | None = None,
+    amazon_url: str | None = None,
+    metadata: dict | None = None,
 ) -> int:
     """Add a book to the database, returning its ID."""
     ensure_tables(conn)
@@ -106,13 +103,23 @@ def add_book(
         INSERT INTO books (title, author, description, summary, google_books_id, isbn, cover_url, amazon_url, metadata)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (title, author, description, summary, google_books_id, isbn, cover_url, amazon_url, metadata_json),
+        (
+            title,
+            author,
+            description,
+            summary,
+            google_books_id,
+            isbn,
+            cover_url,
+            amazon_url,
+            metadata_json,
+        ),
     )
     conn.commit()
     return cursor.lastrowid
 
 
-def get_book(conn: sqlite3.Connection, book_id: int) -> Optional[sqlite3.Row]:
+def get_book(conn: sqlite3.Connection, book_id: int) -> sqlite3.Row | None:
     """Get a book by ID."""
     ensure_tables(conn)
     return conn.execute("SELECT * FROM books WHERE id = ?", (book_id,)).fetchone()
@@ -120,7 +127,7 @@ def get_book(conn: sqlite3.Connection, book_id: int) -> Optional[sqlite3.Row]:
 
 def list_books(
     conn: sqlite3.Connection,
-    status: Optional[str] = None,
+    status: str | None = None,
 ) -> list[sqlite3.Row]:
     """List all books, optionally filtered by status."""
     ensure_tables(conn)
@@ -150,8 +157,8 @@ def update_status(conn: sqlite3.Connection, book_id: int, status: str) -> bool:
 def find_book_by_title_author(
     conn: sqlite3.Connection,
     title: str,
-    author: Optional[str] = None,
-) -> Optional[sqlite3.Row]:
+    author: str | None = None,
+) -> sqlite3.Row | None:
     """Find an existing book by title and author (case-insensitive)."""
     ensure_tables(conn)
     if author:
@@ -178,8 +185,8 @@ def add_source(
     external_id: str,
     title: str,
     source_type: str = "reddit",
-    url: Optional[str] = None,
-    metadata: Optional[dict] = None,
+    url: str | None = None,
+    metadata: dict | None = None,
 ) -> int:
     """Add a source to the database, returning its ID. Returns existing ID if already present."""
     ensure_tables(conn)
@@ -198,19 +205,25 @@ def add_source(
     return cursor.lastrowid
 
 
-def get_source(conn: sqlite3.Connection, source_id: int) -> Optional[sqlite3.Row]:
+def get_source(conn: sqlite3.Connection, source_id: int) -> sqlite3.Row | None:
     """Get a source by ID."""
     ensure_tables(conn)
     return conn.execute("SELECT * FROM sources WHERE id = ?", (source_id,)).fetchone()
 
 
-def get_source_by_external_id(conn: sqlite3.Connection, external_id: str) -> Optional[sqlite3.Row]:
+def get_source_by_external_id(
+    conn: sqlite3.Connection, external_id: str
+) -> sqlite3.Row | None:
     """Get a source by its external ID."""
     ensure_tables(conn)
-    return conn.execute("SELECT * FROM sources WHERE external_id = ?", (external_id,)).fetchone()
+    return conn.execute(
+        "SELECT * FROM sources WHERE external_id = ?", (external_id,)
+    ).fetchone()
 
 
-def list_sources(conn: sqlite3.Connection, source_type: Optional[str] = None) -> list[sqlite3.Row]:
+def list_sources(
+    conn: sqlite3.Connection, source_type: str | None = None
+) -> list[sqlite3.Row]:
     """List all sources, optionally filtered by type."""
     ensure_tables(conn)
     if source_type:
@@ -218,9 +231,7 @@ def list_sources(conn: sqlite3.Connection, source_type: Optional[str] = None) ->
             "SELECT * FROM sources WHERE source_type = ? ORDER BY created_at DESC",
             (source_type,),
         ).fetchall()
-    return conn.execute(
-        "SELECT * FROM sources ORDER BY created_at DESC"
-    ).fetchall()
+    return conn.execute("SELECT * FROM sources ORDER BY created_at DESC").fetchall()
 
 
 def delete_source(conn: sqlite3.Connection, source_id: int) -> bool:
@@ -235,7 +246,7 @@ def add_book_source(
     conn: sqlite3.Connection,
     book_id: int,
     source_id: int,
-    context_id: Optional[str] = None,
+    context_id: str | None = None,
     score: int = 0,
 ) -> None:
     """Record that a book was mentioned in a source."""

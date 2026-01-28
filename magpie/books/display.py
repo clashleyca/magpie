@@ -8,7 +8,9 @@ import click
 from .models import Book, SearchResult
 
 
-def format_book_result(result: SearchResult, rank: int, show_sources: bool = False) -> None:
+def format_book_result(
+    result: SearchResult, rank: int, show_sources: bool = False
+) -> None:
     """Format and display a book search result."""
     book = result.book
     click.echo(f"{rank}. {book.title}")

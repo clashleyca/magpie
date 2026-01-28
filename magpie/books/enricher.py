@@ -2,10 +2,9 @@
 
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 
 import requests
-
 
 GOOGLE_BOOKS_API = "https://www.googleapis.com/books/v1/volumes"
 GOOGLE_BOOKS_API_KEY = os.environ.get("GOOGLE_BOOKS_API_KEY")
@@ -16,15 +15,15 @@ _api_quota_warned = False
 class BookEnricher:
     """Enrich book metadata using Google Books API."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or GOOGLE_BOOKS_API_KEY
 
-    def enrich(self, title: str, author: Optional[str] = None) -> Optional[dict[str, Any]]:
+    def enrich(self, title: str, author: str | None = None) -> dict[str, Any] | None:
         """Look up book metadata from Google Books API."""
         return lookup_google_books(title, author)
 
 
-def lookup_google_books(title: str, author: Optional[str] = None) -> Optional[dict[str, Any]]:
+def lookup_google_books(title: str, author: str | None = None) -> dict[str, Any] | None:
     """Look up book metadata from Google Books API."""
     global _api_quota_warned
 
@@ -45,7 +44,7 @@ def lookup_google_books(title: str, author: Optional[str] = None) -> Optional[di
     return None
 
 
-def _query_google_books(query: str) -> Optional[dict[str, Any]]:
+def _query_google_books(query: str) -> dict[str, Any] | None:
     """Execute a single Google Books API query."""
     global _api_quota_warned
 
@@ -64,7 +63,9 @@ def _query_google_books(query: str) -> Optional[dict[str, Any]]:
         # Check for API errors (quota exceeded, disabled API, etc.)
         if "error" in data:
             if not _api_quota_warned:
-                print(f"\nWarning: Google Books API error - {data['error'].get('message', 'unknown error')}")
+                print(
+                    f"\nWarning: Google Books API error - {data['error'].get('message', 'unknown error')}"
+                )
                 _api_quota_warned = True
             return None
 
@@ -97,7 +98,7 @@ def _query_google_books(query: str) -> Optional[dict[str, Any]]:
     return None
 
 
-def _extract_isbn(volume_info: dict[str, Any]) -> Optional[str]:
+def _extract_isbn(volume_info: dict[str, Any]) -> str | None:
     """Extract ISBN-13 or ISBN-10 from volume info (prefers ISBN-13 for storage)."""
     identifiers = volume_info.get("industryIdentifiers", [])
     for id_type in ["ISBN_13", "ISBN_10"]:
@@ -107,7 +108,7 @@ def _extract_isbn(volume_info: dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _extract_isbn10(volume_info: dict[str, Any]) -> Optional[str]:
+def _extract_isbn10(volume_info: dict[str, Any]) -> str | None:
     """Extract ISBN-10 specifically (needed for Amazon ASIN links)."""
     identifiers = volume_info.get("industryIdentifiers", [])
     for identifier in identifiers:
@@ -116,7 +117,7 @@ def _extract_isbn10(volume_info: dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _build_amazon_url(volume_info: dict[str, Any]) -> Optional[str]:
+def _build_amazon_url(volume_info: dict[str, Any]) -> str | None:
     """Build an Amazon URL for the book - direct link if ISBN-10 works, otherwise search."""
     title = volume_info.get("title", "")
     authors = volume_info.get("authors", [])

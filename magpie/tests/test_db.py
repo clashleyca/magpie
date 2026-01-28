@@ -1,6 +1,7 @@
 """Tests for database operations."""
 
 import sqlite3
+
 import pytest
 
 from magpie.books import db

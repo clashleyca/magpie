@@ -2,10 +2,9 @@
 
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 import requests
-
 
 _ollama_warned = False
 
@@ -13,7 +12,9 @@ _ollama_warned = False
 class BookExtractor:
     """Extract book titles and authors from text using Ollama LLM."""
 
-    def __init__(self, model: str = "llama3.2", ollama_url: str = "http://localhost:11434"):
+    def __init__(
+        self, model: str = "llama3.2", ollama_url: str = "http://localhost:11434"
+    ):
         self.model = model
         self.ollama_url = ollama_url
 
@@ -21,12 +22,14 @@ class BookExtractor:
         """Extract book titles and authors from text."""
         return extract_books_from_text(text, ollama_model=self.model)
 
-    def summarize(self, description: str) -> Optional[str]:
+    def summarize(self, description: str) -> str | None:
         """Summarize a book description."""
         return summarize_description(description, ollama_model=self.model)
 
 
-def extract_books_from_text(text: str, ollama_model: str = "llama3.2") -> list[dict[str, Any]]:
+def extract_books_from_text(
+    text: str, ollama_model: str = "llama3.2"
+) -> list[dict[str, Any]]:
     """Use Ollama to extract book titles and authors from text."""
     global _ollama_warned
 
@@ -80,7 +83,9 @@ JSON:"""
     return []
 
 
-def _filter_valid_books(books: list[dict[str, Any]], source_text: str = "") -> list[dict[str, Any]]:
+def _filter_valid_books(
+    books: list[dict[str, Any]], source_text: str = ""
+) -> list[dict[str, Any]]:
     """Filter out invalid book entries and validate against source text."""
     invalid_values = {"null", "unknown", "n/a", "none", ""}
     valid = []
@@ -106,7 +111,9 @@ def _filter_valid_books(books: list[dict[str, Any]], source_text: str = "") -> l
     return valid
 
 
-def summarize_description(description: str, ollama_model: str = "llama3.2") -> Optional[str]:
+def summarize_description(
+    description: str, ollama_model: str = "llama3.2"
+) -> str | None:
     """Use Ollama to create a concise 1-2 sentence summary of a book description."""
     if not description or len(description) < 50:
         return description  # Already short enough
@@ -126,7 +133,7 @@ Summary:"""
         response.raise_for_status()
         result = response.json()["response"].strip()
         # Clean up any quotes the LLM might add
-        result = result.strip('"\'')
+        result = result.strip("\"'")
         # Remove common LLM preamble patterns
         preamble_patterns = [
             "Here is a summary",
@@ -137,7 +144,7 @@ Summary:"""
         ]
         for pattern in preamble_patterns:
             if result.lower().startswith(pattern.lower()):
-                result = result[len(pattern):].lstrip(": \n")
+                result = result[len(pattern) :].lstrip(": \n")
                 break
         # Truncate if still too long
         if len(result) > 200:

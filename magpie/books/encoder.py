@@ -17,7 +17,7 @@ logging.getLogger("torch").setLevel(logging.ERROR)
 logging.getLogger("safetensors").setLevel(logging.ERROR)
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer  # noqa: E402
 
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 
@@ -39,7 +39,9 @@ def encode(text: str, model_name: str = DEFAULT_MODEL) -> list[float]:
     return embedding.tolist()
 
 
-def encode_batch(texts: list[str], model_name: str = DEFAULT_MODEL) -> list[list[float]]:
+def encode_batch(
+    texts: list[str], model_name: str = DEFAULT_MODEL
+) -> list[list[float]]:
     """Encode multiple texts into embedding vectors."""
     model = get_model(model_name)
     embeddings = model.encode(texts, normalize_embeddings=True)
