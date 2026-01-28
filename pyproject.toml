@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "magpie"
+version = "0.1.0"
+description = "Semantic search for content recommendations - books, recipes, and more"
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.0",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "requests>=2.28.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+magpie = "magpie.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["magpie/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
