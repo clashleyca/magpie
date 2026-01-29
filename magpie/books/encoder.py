@@ -40,7 +40,6 @@ def _init_logging():
 
 def get_model(model_name: str = DEFAULT_MODEL):
     """Get or initialize the sentence transformer model."""
-    import contextlib
     import io
     import sys
 
