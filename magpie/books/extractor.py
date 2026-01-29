@@ -48,7 +48,13 @@ JSON:"""
     try:
         response = requests.post(
             "http://localhost:11434/api/generate",
-            json={"model": ollama_model, "prompt": prompt, "stream": False},
+            json={
+                "model": ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": 0},
+            },
             timeout=60,
         )
         response.raise_for_status()
@@ -110,7 +116,8 @@ def _filter_valid_books(
         valid.append(book)
     return valid
 
-
+# TODO: Change (max 100 characters) to (under 20 words), see if the LLM response improves
+# Add a "re-generate summary" command so the summary can be updated without going back to google books
 def summarize_description(
     description: str, ollama_model: str = "llama3.2"
 ) -> str | None:
@@ -129,7 +136,12 @@ Summary:"""
     try:
         response = requests.post(
             "http://localhost:11434/api/generate",
-            json={"model": ollama_model, "prompt": prompt, "stream": False},
+            json={
+                "model": ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.3},
+            },
             timeout=30,
         )
         response.raise_for_status()

@@ -129,7 +129,7 @@ def list_books(
     conn: sqlite3.Connection,
     status: str | None = None,
 ) -> list[sqlite3.Row]:
-    """List all books, optionally filtered by status."""
+    """List all books, optionally filtered by status. Excludes deleted unless specifically requested."""
     ensure_tables(conn)
     query = "SELECT * FROM books"
     params = []
@@ -137,6 +137,8 @@ def list_books(
     if status:
         query += " WHERE status = ?"
         params.append(status)
+    else:
+        query += " WHERE status != 'deleted'"
 
     query += " ORDER BY created_at DESC"
 

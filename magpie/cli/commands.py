@@ -263,8 +263,8 @@ def search(query, limit, raw, verbose, new_only):
     chroma_client = get_client()
     collection = get_collection(chroma_client)
 
-    # Fetch extra results if filtering by new, to ensure we get enough matches
-    fetch_limit = limit * 3 if new_only else limit
+    # Fetch extra results to account for deleted/filtered books
+    fetch_limit = limit * 3
     results = vector.search(collection, query_embedding, n_results=fetch_limit)
 
     if not results["ids"] or not results["ids"][0]:
@@ -315,6 +315,9 @@ def search(query, limit, raw, verbose, new_only):
 
         if row:
             book = Book.from_row(row)
+            # Skip deleted books
+            if book.status == "deleted":
+                continue
             # Skip if filtering by new and book has been viewed
             if new_only and book.status != "new":
                 continue
@@ -346,24 +349,33 @@ def search(query, limit, raw, verbose, new_only):
     "filter_status",
     help="Filter by status (new, interested, reading, finished)",
 )
+@click.option("--filter", "-f", "filter_text", help="Filter by title or author (case-insensitive)")
 @click.option("--limit", "-n", default=50, help="Number of books to show")
-def list_books(filter_status, limit):
+def list_books(filter_status, filter_text, limit):
     """List all indexed books."""
     conn = get_connection()
     db.ensure_tables(conn)
     books = db.list_books(conn, status=filter_status)
 
+    if filter_text:
+        filter_lower = filter_text.lower()
+        books = [
+            b for b in books
+            if filter_lower in (b["title"] or "").lower()
+            or filter_lower in (b["author"] or "").lower()
+        ]
+
     if not books:
-        if filter_status:
-            click.echo(f"No books with status '{filter_status}'.")
+        if filter_status or filter_text:
+            click.echo("No books match the filter.")
         else:
             click.echo("No books indexed yet. Use 'magpie add' to add a source.")
         return
 
     total = len(books)
     books = books[:limit]
-    if filter_status:
-        click.echo(f"Books with status '{filter_status}': {total}")
+    if filter_status or filter_text:
+        click.echo(f"Matching books: {total}")
     else:
         click.echo(f"Total books: {total}")
     click.echo()
@@ -375,14 +387,18 @@ def list_books(filter_status, limit):
         click.echo(f"... and {total - limit} more. Use --limit to show more.")
 
 
-VALID_STATUSES = ["new", "viewed", "interested", "reading", "finished", "dropped"]
+VALID_STATUSES = ["new", "viewed", "interested", "reading", "finished", "dropped", "deleted"]
 
 
 @cli.command()
 @click.argument("book_id", type=int)
-@click.argument("new_status")
+@click.argument("new_status", required=False)
 def status(book_id, new_status):
     """Update a book's reading status."""
+    if new_status is None:
+        click.echo(f"Valid statuses: {', '.join(VALID_STATUSES)}")
+        return
+
     if new_status not in VALID_STATUSES:
         click.echo(
             f"Invalid status '{new_status}'. Valid options: {', '.join(VALID_STATUSES)}",
@@ -427,6 +443,8 @@ def list_sources():
         click.echo(
             f"{src['id']:<4} {src['external_id']:<12} {title:<50} {len(books):<6}"
         )
+        if src["url"]:
+            click.echo(f"     {src['url']}")
 
 
 @cli.command("remove-source")
