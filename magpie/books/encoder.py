@@ -46,7 +46,14 @@ def get_model(model_name: str = DEFAULT_MODEL):
     global _model
     if _model is None:
         _init_logging()
-        from sentence_transformers import SentenceTransformer
+
+        # Suppress stderr during import (catches HF warnings)
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            from sentence_transformers import SentenceTransformer
+        finally:
+            sys.stderr = old_stderr
 
         # Suppress stdout/stderr during model loading (catches LOAD REPORT messages)
         old_stdout, old_stderr = sys.stdout, sys.stderr

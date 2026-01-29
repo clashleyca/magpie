@@ -255,14 +255,17 @@ def _load_thread(source: str, reddit_id: str | None = None) -> dict | None:
 @click.option("--limit", "-n", default=5, help="Number of results to return")
 @click.option("--raw", is_flag=True, help="Show raw vector search results")
 @click.option("--verbose", "-v", is_flag=True, help="Show source threads")
-def search(query, limit, raw, verbose):
+@click.option("--new", "new_only", is_flag=True, help="Only show books not yet viewed")
+def search(query, limit, raw, verbose, new_only):
     """Search for books by semantic query."""
     query_embedding = encoder.encode(query)
 
     chroma_client = get_client()
     collection = get_collection(chroma_client)
 
-    results = vector.search(collection, query_embedding, n_results=limit)
+    # Fetch extra results if filtering by new, to ensure we get enough matches
+    fetch_limit = limit * 3 if new_only else limit
+    results = vector.search(collection, query_embedding, n_results=fetch_limit)
 
     if not results["ids"] or not results["ids"][0]:
         click.echo("No books found. Try adding some sources first.")
@@ -300,17 +303,41 @@ def search(query, limit, raw, verbose):
             strict=False,
         )
     )
-    num_results = len(result_items)
-    for i, (_doc_id, metadata, distance) in enumerate(reversed(result_items)):
+
+    # Collect books to display
+    displayed_books = []
+    for _doc_id, metadata, distance in reversed(result_items):
+        if len(displayed_books) >= limit:
+            break
+
         book_id = metadata.get("book_id") or metadata.get("document_id")
         row = db.get_book(conn, book_id) if book_id else None
 
         if row:
             book = Book.from_row(row)
+            # Skip if filtering by new and book has been viewed
+            if new_only and book.status != "new":
+                continue
             sources = db.get_book_sources(conn, book_id)
-            result = SearchResult(book=book, score=1 - distance, source_titles=[])
-            rank = num_results - i
-            format_book_result(result, rank, sources, verbose=verbose)
+            displayed_books.append((book, sources, 1 - distance))
+
+    if not displayed_books:
+        if new_only:
+            click.echo("No new books found. Try without --new to see viewed books.")
+        else:
+            click.echo("No matching books found.")
+        return
+
+    # Display results (reversed so best match is #1 at bottom)
+    num_results = len(displayed_books)
+    for i, (book, sources, score) in enumerate(displayed_books):
+        result = SearchResult(book=book, score=score, source_titles=[])
+        rank = num_results - i
+        format_book_result(result, rank, sources, verbose=verbose)
+
+        # Mark as viewed if currently new
+        if book.status == "new":
+            db.update_status(conn, book.id, "viewed")
 
 
 @cli.command("list")
@@ -348,7 +375,7 @@ def list_books(filter_status, limit):
         click.echo(f"... and {total - limit} more. Use --limit to show more.")
 
 
-VALID_STATUSES = ["new", "interested", "reading", "finished", "dropped"]
+VALID_STATUSES = ["new", "viewed", "interested", "reading", "finished", "dropped"]
 
 
 @cli.command()
