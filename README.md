@@ -1,7 +1,5 @@
 # Magpie
 
-<img src="assets/magpie.png" alt="Magpie" width="200">
-
 Search the book recommendations you already trust.
 
 ---
