@@ -16,6 +16,8 @@ Instead of starting from scratch, I’m searching a set of recommendations I alr
 
 Magpie works best for broad, taste-based queries (e.g. *“hopeful but not grimdark dystopia”*), not ultra-specific plot details.
 
+**In short:** Magpie is semantic search over your saved Reddit recommendation threads (plus Google Books blurbs), not a general book recommender.
+
 ---
 
 ## What It Does
@@ -35,13 +37,24 @@ The search results are influenced both by **Google Books descriptions** *and* th
 
 ```bash
 magpie search "post-apocalyptic but hopeful, not grimdark" -n 1
-````
+```
 
 ```
-1. The Dog Stars: The hope-filled story of a world changed by global catastrophe — Peter Heller
+1. The Dog Stars — Peter Heller
    Post-apocalyptic romance with suspenseful themes, as a survivor embarks on a perilous journey to find others in a world ravaged by global disaster.
-   Amazon: https://www.amazon.com/s?k=The%20Dog%20Stars%3A%20The%20hope-filled%20story%20of%20a%20world%20changed%20by%20global%20catastrophe%20Peter%20Heller
+   Amazon: https://www.amazon.com/s?k=The+Dog+Stars+Peter+Heller
 ```
+---
+### What Magpie Is (and Isn’t) Good At
+
+**Great for**
+- Taste- and vibe-based searches (“hopeful but not grimdark dystopia”)
+- Finding overlooked or lesser-known books
+- Searching recommendations you already trust
+
+**Not great for**
+- Plot-level or ultra-specific queries (“space spiders”) unless they appear in the description or thread text
+- Finding books outside the threads you’ve added
 
 ---
 
@@ -66,7 +79,7 @@ magpie list
 * Ollama (for book extraction)
 
 ---
-## Hardware Requirements
+## Runs Locally (No GPU Required)
 
 Magpie runs locally on a standard laptop or desktop.  
 It was developed and tested on a 2021 MacBook Pro (M1, 16GB RAM) and does not require a GPU.
@@ -141,6 +154,8 @@ magpie remove-source <source_id>
 ---
 
 ## How It Works (Briefly)
+
+All data is stored locally (SQLite + ChromaDB); your Reddit threads and embeddings never leave your machine.
 
 ### Extraction Flow
 
