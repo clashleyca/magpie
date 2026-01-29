@@ -75,18 +75,26 @@ def _query_google_books(query: str) -> dict[str, Any] | None:
             return None
 
         if data.get("totalItems", 0) > 0:
+            # Filter to English books only
+            english_items = [
+                item for item in data.get("items", [])
+                if item.get("volumeInfo", {}).get("language", "en") == "en"
+            ]
+
             # Find best result: prefer ones with longer descriptions
             best_item = None
             best_desc_len = 0
-            for item in data.get("items", []):
+            for item in english_items:
                 vol = item.get("volumeInfo", {})
                 desc = vol.get("description", "")
                 if len(desc) > best_desc_len:
                     best_desc_len = len(desc)
                     best_item = item
 
-            # Fall back to first result if none have descriptions
-            item = best_item or data["items"][0]
+            # Fall back to first English result if none have descriptions
+            if not english_items:
+                return None
+            item = best_item or english_items[0]
             volume_info = item.get("volumeInfo", {})
             return {
                 "google_books_id": item.get("id"),
