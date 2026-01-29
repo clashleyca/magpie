@@ -7,6 +7,7 @@ from .db import (
     delete_book,
     delete_book_sources_for_source,
     delete_source,
+    find_book_by_google_id,
     find_book_by_title_author,
     get_book,
     get_book_source_count,
@@ -18,7 +19,7 @@ from .db import (
     list_sources,
     update_status,
 )
-from .enricher import BookEnricher
+from .enricher import BookEnricher, QuotaExceededError
 from .extractor import BookExtractor
 from .models import Book, SearchResult, Source
 
@@ -28,9 +29,11 @@ __all__ = [
     "SearchResult",
     "BookExtractor",
     "BookEnricher",
+    "QuotaExceededError",
     "add_book",
     "get_book",
     "list_books",
+    "find_book_by_google_id",
     "find_book_by_title_author",
     "update_status",
     "delete_book",

@@ -9,7 +9,11 @@ import requests
 GOOGLE_BOOKS_API = "https://www.googleapis.com/books/v1/volumes"
 GOOGLE_BOOKS_API_KEY = os.environ.get("GOOGLE_BOOKS_API_KEY")
 
-_api_quota_warned = False
+
+class QuotaExceededError(Exception):
+    """Raised when Google Books API quota is exceeded."""
+
+    pass
 
 
 class BookEnricher:
@@ -17,6 +21,11 @@ class BookEnricher:
 
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or GOOGLE_BOOKS_API_KEY
+
+    def test_api(self) -> bool:
+        """Test if Google Books API is accessible. Raises QuotaExceededError if rate limited."""
+        _query_google_books('intitle:"Test"')
+        return True
 
     def enrich(self, title: str, author: str | None = None) -> dict[str, Any] | None:
         """Look up book metadata from Google Books API."""
@@ -46,8 +55,6 @@ def lookup_google_books(title: str, author: str | None = None) -> dict[str, Any]
 
 def _query_google_books(query: str) -> dict[str, Any] | None:
     """Execute a single Google Books API query."""
-    global _api_quota_warned
-
     try:
         # Request multiple results to find best match (English, with description)
         params = {"q": query, "maxResults": 5, "langRestrict": "en"}
@@ -62,11 +69,9 @@ def _query_google_books(query: str) -> dict[str, Any] | None:
 
         # Check for API errors (quota exceeded, disabled API, etc.)
         if "error" in data:
-            if not _api_quota_warned:
-                print(
-                    f"\nWarning: Google Books API error - {data['error'].get('message', 'unknown error')}"
-                )
-                _api_quota_warned = True
+            error_msg = data["error"].get("message", "unknown error")
+            if "Quota exceeded" in error_msg or "quota" in error_msg.lower():
+                raise QuotaExceededError(error_msg)
             return None
 
         if data.get("totalItems", 0) > 0:

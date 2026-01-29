@@ -31,17 +31,17 @@ class Book:
         return cls(
             id=row["id"],
             title=row["title"],
-            author=row.get("author"),
-            description=row.get("description"),
-            summary=row.get("summary"),
-            google_books_id=row.get("google_books_id"),
-            isbn=row.get("isbn"),
-            cover_url=row.get("cover_url"),
-            amazon_url=row.get("amazon_url"),
-            status=row.get("status", "new"),
+            author=row["author"],
+            description=row["description"],
+            summary=row["summary"],
+            google_books_id=row["google_books_id"],
+            isbn=row["isbn"],
+            cover_url=row["cover_url"],
+            amazon_url=row["amazon_url"],
+            status=row["status"] or "new",
             metadata={},
-            created_at=row.get("created_at"),
-            updated_at=row.get("updated_at"),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
 
@@ -64,12 +64,12 @@ class Source:
             return None
         return cls(
             id=row["id"],
-            source_type=row.get("source_type", "reddit"),
+            source_type=row["source_type"] or "reddit",
             external_id=row["external_id"],
             title=row["title"],
-            url=row.get("url"),
+            url=row["url"],
             metadata={},
-            created_at=row.get("created_at"),
+            created_at=row["created_at"],
         )
 
 

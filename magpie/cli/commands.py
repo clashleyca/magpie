@@ -5,8 +5,9 @@ from pathlib import Path
 
 import click
 
-from ..books import BookEnricher, BookExtractor, db, encoder, vector
-from ..books.display import format_book_list_item, format_raw_result
+from ..books import BookEnricher, BookExtractor, QuotaExceededError, db, encoder, vector
+from ..books.display import format_book_list_item, format_book_result, format_raw_result
+from ..books.models import Book, SearchResult
 from ..core.chroma import get_client, get_collection
 from ..core.sqlite import get_connection
 from ..sources import reddit
@@ -51,6 +52,19 @@ def add(source, model, force, verbose):
     click.echo(f"Subreddit: r/{thread_data.get('subreddit', 'unknown')}")
     click.echo(f"Comments: {len(thread_data.get('comments', []))}")
 
+    # Test Google Books API before processing
+    enricher = BookEnricher()
+    try:
+        enricher.test_api()
+    except QuotaExceededError:
+        click.echo("\nGoogle Books rate limit reached (HTTP 429).", err=True)
+        click.echo(
+            "You can wait for the limit to reset, or set a Google Books API key to use your own quota.",
+            err=True,
+        )
+        click.echo("(Set GOOGLE_BOOKS_API_KEY to avoid shared limits.)", err=True)
+        return
+
     source_id = db.add_source(
         conn,
         external_id=thread_data["id"],
@@ -64,7 +78,6 @@ def add(source, model, force, verbose):
     click.echo(f"\nExtracting books from {len(comment_texts)} comments...")
 
     extractor = BookExtractor(model=model)
-    enricher = BookEnricher()
 
     books_found = []
     if verbose:
@@ -105,9 +118,28 @@ def add(source, model, force, verbose):
             books_skipped += 1
             continue
 
-        google_data = enricher.enrich(title, author)
+        try:
+            google_data = enricher.enrich(title, author)
+        except QuotaExceededError:
+            click.echo("\nGoogle Books rate limit reached (HTTP 429).", err=True)
+            click.echo(
+                "You can wait for the limit to reset, or set a Google Books API key to use your own quota.",
+                err=True,
+            )
+            click.echo("(Set GOOGLE_BOOKS_API_KEY to avoid shared limits.)", err=True)
+            click.echo(f"\nProgress: {books_added} added, {books_skipped} skipped.")
+            return
 
         if google_data:
+            # Check for duplicate by Google Books ID
+            google_id = google_data.get("google_books_id")
+            if google_id:
+                existing = db.find_book_by_google_id(conn, google_id)
+                if existing:
+                    db.add_book_source(conn, existing["id"], source_id)
+                    books_skipped += 1
+                    continue
+
             description = google_data.get("description", "")
             summary = extractor.summarize(description) if description else None
             book_id = db.add_book(
@@ -271,43 +303,14 @@ def search(query, limit, raw, verbose):
     num_results = len(result_items)
     for i, (_doc_id, metadata, distance) in enumerate(reversed(result_items)):
         book_id = metadata.get("book_id") or metadata.get("document_id")
-        book = db.get_book(conn, book_id) if book_id else None
+        row = db.get_book(conn, book_id) if book_id else None
 
-        if book:
-            similarity = 1 - distance
-            rank = num_results - i
-            click.echo(f"{rank}. {book['title']}")
-            click.echo(f"   Author: {book['author'] or 'Unknown'}")
-
-            if book["summary"]:
-                click.echo(f"   {book['summary']}")
-            elif book["description"]:
-                desc = book["description"]
-                if len(desc) > 200:
-                    desc = desc[:200] + "..."
-                click.echo(f"   {desc}")
-
+        if row:
+            book = Book.from_row(row)
             sources = db.get_book_sources(conn, book_id)
-            if sources:
-                for src in sources:
-                    source_url = (
-                        src["url"]
-                        or f"https://reddit.com/comments/{src['external_id']}"
-                    )
-                    click.echo(f"   Reddit: {source_url}")
-
-            amazon_url = book["amazon_url"]
-            if not amazon_url:
-                import urllib.parse
-
-                search_query = f"{book['title']} {book['author'] or ''}".strip()
-                amazon_url = (
-                    f"https://www.amazon.com/s?k={urllib.parse.quote(search_query)}"
-                )
-            click.echo(f"   Amazon: {amazon_url}")
-
-            click.echo(f"   Score: {similarity:.3f} | Status: {book['status']}")
-            click.echo()
+            result = SearchResult(book=book, score=1 - distance, source_titles=[])
+            rank = num_results - i
+            format_book_result(result, rank, sources, verbose=verbose)
 
 
 @cli.command("list")

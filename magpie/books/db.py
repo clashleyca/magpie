@@ -172,6 +172,18 @@ def find_book_by_title_author(
     ).fetchone()
 
 
+def find_book_by_google_id(
+    conn: sqlite3.Connection,
+    google_books_id: str,
+) -> sqlite3.Row | None:
+    """Find an existing book by Google Books ID."""
+    ensure_tables(conn)
+    return conn.execute(
+        "SELECT * FROM books WHERE google_books_id = ?",
+        (google_books_id,),
+    ).fetchone()
+
+
 def delete_book(conn: sqlite3.Connection, book_id: int) -> bool:
     """Delete a book from the database."""
     ensure_tables(conn)
@@ -251,9 +263,16 @@ def add_book_source(
 ) -> None:
     """Record that a book was mentioned in a source."""
     ensure_tables(conn)
+    # Check if already exists (NULL != NULL in SQL unique constraints)
+    existing = conn.execute(
+        "SELECT 1 FROM book_sources WHERE book_id = ? AND source_id = ?",
+        (book_id, source_id),
+    ).fetchone()
+    if existing:
+        return
     conn.execute(
         """
-        INSERT OR IGNORE INTO book_sources (book_id, source_id, context_id, score)
+        INSERT INTO book_sources (book_id, source_id, context_id, score)
         VALUES (?, ?, ?, ?)
         """,
         (book_id, source_id, context_id, score),

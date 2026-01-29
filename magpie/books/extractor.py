@@ -118,7 +118,9 @@ def summarize_description(
     if not description or len(description) < 50:
         return description  # Already short enough
 
-    prompt = f"""Summarize this book description in 1-2 sentences (max 150 characters). Focus on genre and core premise. No spoilers. Reply with ONLY the summary, no preamble.
+    prompt = f"""Summarize this book description in 1 sentence (max 100 characters). Focus on genre and core premise. No spoilers. Reply with ONLY the summary, no preamble.
+
+IGNORE: bestseller status, awards, author credentials, review quotes, "from the author of".
 
 Description: {description}
 

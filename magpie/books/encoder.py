@@ -1,41 +1,88 @@
 """Embedding and text processing for books."""
 
-import logging
 import os
-import warnings
 
-# Suppress noisy output before importing transformers/torch
+# Set environment variables BEFORE any transformers imports
 os.environ["TQDM_DISABLE"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", message=".*layers were not sharded.*")
-warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
-logging.getLogger("transformers").setLevel(logging.ERROR)
-logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
-logging.getLogger("torch").setLevel(logging.ERROR)
-logging.getLogger("safetensors").setLevel(logging.ERROR)
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-
-from sentence_transformers import SentenceTransformer  # noqa: E402
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
+os.environ["SAFETENSORS_FAST_GPU"] = "1"
+os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 
 _model = None
+_logging_initialized = False
 
 
-def get_model(model_name: str = DEFAULT_MODEL) -> SentenceTransformer:
+def _init_logging():
+    """Suppress noisy output from transformers/torch (called once before first encode)."""
+    global _logging_initialized
+    if _logging_initialized:
+        return
+    _logging_initialized = True
+
+    import logging
+    import warnings
+
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore")  # Suppress all warnings
+    logging.getLogger("transformers").setLevel(logging.CRITICAL)
+    logging.getLogger("sentence_transformers").setLevel(logging.CRITICAL)
+    logging.getLogger("torch").setLevel(logging.CRITICAL)
+    logging.getLogger("safetensors").setLevel(logging.CRITICAL)
+    logging.getLogger("huggingface_hub").setLevel(logging.CRITICAL)
+
+
+def get_model(model_name: str = DEFAULT_MODEL):
     """Get or initialize the sentence transformer model."""
+    import contextlib
+    import io
+    import sys
+
     global _model
     if _model is None:
-        _model = SentenceTransformer(model_name)
+        _init_logging()
+        from sentence_transformers import SentenceTransformer
+
+        # Suppress stdout/stderr during model loading (catches LOAD REPORT messages)
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        try:
+            _model = SentenceTransformer(model_name)
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
     return _model
+
+
+_first_encode = True
 
 
 def encode(text: str, model_name: str = DEFAULT_MODEL) -> list[float]:
     """Encode text into an embedding vector."""
+    import io
+    import sys
+
+    global _first_encode
     model = get_model(model_name)
-    embedding = model.encode(text, normalize_embeddings=True)
+
+    # Suppress output on first encode (LOAD REPORT can appear here)
+    if _first_encode:
+        _first_encode = False
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        try:
+            embedding = model.encode(text, normalize_embeddings=True)
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+    else:
+        embedding = model.encode(text, normalize_embeddings=True)
     return embedding.tolist()
 
 
