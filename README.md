@@ -65,7 +65,7 @@ magpie search "post-apocalyptic but hopeful, not grimdark" -n 1
 magpie add "https://reddit.com/r/books/comments/..."
 
 # Search your saved recommendations
-magpie search "obscure historical fiction"
+magpie search "religious figures and dark magic"
 
 # List all indexed books
 magpie list
@@ -123,17 +123,12 @@ If you hit rate limits, set `GOOGLE_BOOKS_API_KEY` to use your own quota and avo
 
 ```bash
 magpie add "https://reddit.com/r/books/comments/xyz/best_novels"
-magpie add saved_thread.json
-magpie add --force "https://reddit.com/..."  # Re-process
-magpie add -v "https://reddit.com/..."       # Verbose
 ```
 
 ### Searching
 
 ```bash
-magpie search "ancient greece"
-magpie search "sci-fi" --limit 5
-magpie search "memoirs" --raw
+magpie search "obscure historical fiction with magic"
 ```
 
 ### Managing Books

@@ -6,7 +6,8 @@ from pathlib import Path
 import click
 
 from ..books import BookEnricher, BookExtractor, QuotaExceededError, db, encoder, vector
-from ..books.display import format_book_list_item, format_book_result, format_raw_result
+from ..books.display import format_book_detail, format_book_list_item, format_book_result, format_raw_result
+from ..books.enricher import lookup_google_books_by_isbn
 from ..books.models import Book, SearchResult
 from ..core.chroma import get_client, get_collection
 from ..core.sqlite import get_connection
@@ -23,12 +24,21 @@ def cli():
 
 
 @cli.command()
-@click.argument("source")
+@click.argument("source", required=False)
+@click.option("--isbn", help="Add a single book by ISBN (Google Books lookup)")
 @click.option("--model", default="llama3.2", help="Ollama model for book extraction")
 @click.option("--force", is_flag=True, help="Re-process source even if already indexed")
 @click.option("--verbose", "-v", is_flag=True, help="Show extraction details")
-def add(source, model, force, verbose):
-    """Add a Reddit thread from URL or JSON file."""
+def add(source, isbn, model, force, verbose):
+    """Add a Reddit thread from URL or JSON file, or a single book by ISBN."""
+    if isbn:
+        _add_by_isbn(isbn)
+        return
+
+    if not source:
+        click.echo("Provide a Reddit URL/file or use --isbn <isbn>.", err=True)
+        return
+
     click.echo(f"Adding source from: {source}")
 
     conn = get_connection()
@@ -158,6 +168,7 @@ def add(source, model, force, verbose):
         else:
             book_id = db.add_book(conn, title=title, author=author)
             description = ""
+            summary = None
             final_author = author
             final_title = title
 
@@ -169,6 +180,7 @@ def add(source, model, force, verbose):
                 author=final_author or "Unknown",
                 description=description,
                 source_titles=[thread_data["title"]],
+                summary=summary,
             )
             embedding = encoder.encode(chunk_text)
             vector.add_book_chunk(
@@ -250,12 +262,86 @@ def _load_thread(source: str, reddit_id: str | None = None) -> dict | None:
     return None
 
 
+def _add_by_isbn(isbn: str) -> None:
+    """Add a single book by ISBN via Google Books lookup."""
+    click.echo(f"Looking up ISBN {isbn}...")
+
+    google_data = lookup_google_books_by_isbn(isbn)
+    if not google_data:
+        click.echo(f"No book found for ISBN {isbn}.", err=True)
+        return
+
+    title = google_data.get("title", "Unknown")
+    author = ", ".join(google_data.get("authors", [])) or "Unknown"
+    description = google_data.get("description", "")
+    google_books_id = google_data.get("google_books_id")
+
+    click.echo(f"Found: {title} by {author}")
+
+    conn = get_connection()
+    db.ensure_tables(conn)
+
+    # Check for duplicates
+    if google_books_id:
+        existing = db.find_book_by_google_id(conn, google_books_id)
+        if existing:
+            click.echo(f"Already in database (id={existing['id']}).")
+            return
+
+    existing = db.find_book_by_isbn(conn, isbn)
+    if existing:
+        click.echo(f"Already in database (id={existing['id']}).")
+        return
+
+    existing = db.find_book_by_title_author(conn, title, author)
+    if existing:
+        click.echo(f"Already in database (id={existing['id']}).")
+        return
+
+    book_id = db.add_book(
+        conn,
+        title=title,
+        author=author,
+        description=description,
+        google_books_id=google_books_id,
+        isbn=google_data.get("isbn"),
+        cover_url=google_data.get("cover_url"),
+        amazon_url=google_data.get("amazon_url"),
+    )
+
+    if description:
+        chunk_text = encoder.build_book_chunk(
+            title=title,
+            author=author,
+            description=description,
+            source_titles=[],
+        )
+        embedding = encoder.encode(chunk_text)
+
+        chroma_client = get_client()
+        collection = get_collection(chroma_client)
+        vector.add_book_chunk(
+            collection,
+            book_id=book_id,
+            text=chunk_text,
+            embedding=embedding,
+            metadata={
+                "title": title,
+                "author": author,
+                "source_title": "",
+            },
+        )
+        click.echo(f"Added '{title}' by {author} (id={book_id})")
+    else:
+        click.echo(f"Added '{title}' by {author} (id={book_id}, no description — not searchable)")
+
+
 @cli.command()
 @click.argument("query")
-@click.option("--limit", "-n", default=5, help="Number of results to return")
+@click.option("--limit", "-l", default=5, help="Number of results to return")
 @click.option("--raw", is_flag=True, help="Show raw vector search results")
 @click.option("--verbose", "-v", is_flag=True, help="Show source threads")
-@click.option("--new", "new_only", is_flag=True, help="Only show books not yet viewed")
+@click.option("--new", "-n", "new_only", is_flag=True, help="Only show books not yet viewed")
 def search(query, limit, raw, verbose, new_only):
     """Search for books by semantic query."""
     query_embedding = encoder.encode(query)
@@ -264,7 +350,7 @@ def search(query, limit, raw, verbose, new_only):
     collection = get_collection(chroma_client)
 
     # Fetch extra results to account for deleted/filtered books
-    fetch_limit = limit * 3
+    fetch_limit = limit * (5 if new_only else 3)
     results = vector.search(collection, query_embedding, n_results=fetch_limit)
 
     if not results["ids"] or not results["ids"][0]:
@@ -304,9 +390,9 @@ def search(query, limit, raw, verbose, new_only):
         )
     )
 
-    # Collect books to display
+    # Collect books to display (iterate best-first from vector search)
     displayed_books = []
-    for _doc_id, metadata, distance in reversed(result_items):
+    for _doc_id, metadata, distance in result_items:
         if len(displayed_books) >= limit:
             break
 
@@ -333,7 +419,7 @@ def search(query, limit, raw, verbose, new_only):
 
     # Display results (reversed so best match is #1 at bottom)
     num_results = len(displayed_books)
-    for i, (book, sources, score) in enumerate(displayed_books):
+    for i, (book, sources, score) in enumerate(reversed(displayed_books)):
         result = SearchResult(book=book, score=score, source_titles=[])
         rank = num_results - i
         format_book_result(result, rank, sources, verbose=verbose)
@@ -391,10 +477,32 @@ VALID_STATUSES = ["new", "viewed", "interested", "reading", "finished", "dropped
 
 
 @cli.command()
-@click.argument("book_id", type=int)
+@click.argument("book_id", type=int, required=False)
 @click.argument("new_status", required=False)
-def status(book_id, new_status):
-    """Update a book's reading status."""
+@click.option("--all", "update_all", default=None, help="Update all books to the given status")
+def status(book_id, new_status, update_all):
+    """Update a book's reading status.
+
+    Valid statuses: new, viewed, interested, reading, finished, dropped, deleted
+    """
+    if update_all is not None:
+        if update_all not in VALID_STATUSES:
+            click.echo(
+                f"Invalid status '{update_all}'. Valid options: {', '.join(VALID_STATUSES)}",
+                err=True,
+            )
+            return
+
+        conn = get_connection()
+        db.ensure_tables(conn)
+        count = db.update_all_statuses(conn, update_all)
+        click.echo(f"Updated {count} book(s) to '{update_all}'.")
+        return
+
+    if book_id is None:
+        click.echo(f"Valid statuses: {', '.join(VALID_STATUSES)}")
+        return
+
     if new_status is None:
         click.echo(f"Valid statuses: {', '.join(VALID_STATUSES)}")
         return
@@ -421,6 +529,56 @@ def status(book_id, new_status):
 
     db.update_status(conn, book_id, new_status)
     click.echo(f"Updated '{book['title']}': {old_status} -> {new_status}")
+
+
+@cli.command()
+@click.argument("book_id", type=int)
+def show(book_id):
+    """Show detailed information about a book."""
+    conn = get_connection()
+    db.ensure_tables(conn)
+    row = db.get_book(conn, book_id)
+
+    if not row:
+        click.echo(f"Book {book_id} not found.", err=True)
+        return
+
+    book = Book.from_row(row)
+    sources = db.get_book_sources(conn, book_id)
+    format_book_detail(book, sources)
+
+
+@cli.command()
+@click.argument("book_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+def delete(book_id, yes):
+    """Permanently delete a book from the database and vector store."""
+    conn = get_connection()
+    db.ensure_tables(conn)
+    row = db.get_book(conn, book_id)
+
+    if not row:
+        click.echo(f"Book {book_id} not found.", err=True)
+        return
+
+    title = row["title"]
+    author = row["author"] or "Unknown"
+
+    if not yes:
+        click.echo(f"Delete '{title}' by {author}?")
+        if not click.confirm("This cannot be undone"):
+            click.echo("Cancelled.")
+            return
+
+    # Delete from vector store
+    chroma_client = get_client()
+    collection = get_collection(chroma_client)
+    vector.delete_book(collection, book_id)
+
+    # Delete from database
+    db.delete_book(conn, book_id)
+
+    click.echo(f"Deleted '{title}'")
 
 
 @cli.command("sources")
@@ -498,6 +656,54 @@ def remove_source(source_id, yes):
     db.delete_source(conn, source_id)
 
     click.echo(f"\nRemoved source and {len(books_to_delete)} books.")
+
+
+@cli.command()
+def reindex():
+    """Rebuild vector embeddings for all books (includes summaries)."""
+    conn = get_connection()
+    db.ensure_tables(conn)
+    books = db.list_books(conn)
+
+    # Filter to books with descriptions
+    books_with_desc = [b for b in books if b["description"]]
+
+    if not books_with_desc:
+        click.echo("No books with descriptions to reindex.")
+        return
+
+    click.echo(f"Reindexing {len(books_with_desc)} books...")
+
+    chroma_client = get_client()
+    collection = get_collection(chroma_client)
+
+    with click.progressbar(books_with_desc, label="Rebuilding embeddings") as book_list:
+        for book in book_list:
+            book_id = book["id"]
+            sources = db.get_book_sources(conn, book_id)
+            source_titles = [s["title"] for s in sources] if sources else []
+
+            chunk_text = encoder.build_book_chunk(
+                title=book["title"],
+                author=book["author"] or "Unknown",
+                description=book["description"],
+                source_titles=source_titles,
+                summary=book["summary"],
+            )
+            embedding = encoder.encode(chunk_text)
+            vector.add_book_chunk(
+                collection,
+                book_id=book_id,
+                text=chunk_text,
+                embedding=embedding,
+                metadata={
+                    "title": book["title"],
+                    "author": book["author"] or "Unknown",
+                    "source_title": source_titles[0] if source_titles else "",
+                },
+            )
+
+    click.echo(f"\nReindexed {len(books_with_desc)} books.")
 
 
 if __name__ == "__main__":

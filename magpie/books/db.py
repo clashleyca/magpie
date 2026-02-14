@@ -156,6 +156,17 @@ def update_status(conn: sqlite3.Connection, book_id: int, status: str) -> bool:
     return cursor.rowcount > 0
 
 
+def update_all_statuses(conn: sqlite3.Connection, new_status: str) -> int:
+    """Update all non-deleted books to a new status. Returns count updated."""
+    ensure_tables(conn)
+    cursor = conn.execute(
+        "UPDATE books SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE status != 'deleted' AND status != ?",
+        (new_status, new_status),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
 def find_book_by_title_author(
     conn: sqlite3.Connection,
     title: str,
@@ -171,6 +182,18 @@ def find_book_by_title_author(
     return conn.execute(
         "SELECT * FROM books WHERE LOWER(title) = LOWER(?)",
         (title,),
+    ).fetchone()
+
+
+def find_book_by_isbn(
+    conn: sqlite3.Connection,
+    isbn: str,
+) -> sqlite3.Row | None:
+    """Find an existing book by ISBN."""
+    ensure_tables(conn)
+    return conn.execute(
+        "SELECT * FROM books WHERE isbn = ?",
+        (isbn,),
     ).fetchone()
 
 

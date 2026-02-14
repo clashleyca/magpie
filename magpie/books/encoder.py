@@ -106,6 +106,7 @@ def build_book_chunk(
     author: str,
     description: str,
     source_titles: list[str],
+    summary: str | None = None,
 ) -> str:
     """Build a text chunk for a book suitable for embedding.
 
@@ -119,6 +120,10 @@ def build_book_chunk(
             parts.append(f"Category: {source_title}")
 
     parts.append(f"{title} by {author}")
+
+    # Include summary first - it contains genre/theme keywords
+    if summary:
+        parts.append(summary)
 
     if description:
         parts.append(description)

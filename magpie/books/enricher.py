@@ -32,6 +32,11 @@ class BookEnricher:
         return lookup_google_books(title, author)
 
 
+def lookup_google_books_by_isbn(isbn: str) -> dict[str, Any] | None:
+    """Look up book metadata from Google Books API by ISBN."""
+    return _query_google_books(f"isbn:{isbn}")
+
+
 def lookup_google_books(title: str, author: str | None = None) -> dict[str, Any] | None:
     """Look up book metadata from Google Books API."""
     global _api_quota_warned
