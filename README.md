@@ -14,9 +14,63 @@ I also wanted recommendations that *weren’t* dominated by bestsellers or publi
 **Magpie lets me load those saved Reddit threads and then search *only that pile* of recommendations using natural, vibe-based prompts.**  
 Instead of starting from scratch, I’m searching a set of recommendations I already trust.
 
-Magpie works best for broad, taste-based queries (e.g. *“hopeful but not grimdark dystopia”*), not ultra-specific plot details.
-
 **In short:** Magpie is semantic search over your saved Reddit recommendation threads (plus Google Books blurbs), not a general book recommender.
+
+---
+
+## Example
+
+```bash
+magpie search "religious figures"
+```
+
+```
+5. A Time for Everything — Karl Ove Knausgaard
+   A 16th-century boy's encounter with angels sets him on a lifelong pursuit to understand divine mysteries, reimagining key biblical encounters in a spellbinding narrative.
+   Amazon: https://www.amazon.com/s?k=A%20Time%20for%20Everything%20Karl%20Ove%20Knausgaard
+
+4. How are the Mighty Fallen — Thomas Burnett Swann
+   Historical fantasy retelling of the David and Jonathan story with a supernatural twist.
+   Amazon: https://www.amazon.com/s?k=How%20are%20the%20Mighty%20Fallen%20Thomas%20Burnett%20Swann
+
+3. The Good Man Jesus and the Scoundrel Christ — Philip Pullman
+   A young man pines for his brother, who remains oblivious to his feelings, leading to a poignant exploration of love, identity, and mortality.
+   Amazon: https://www.amazon.com/s?k=The%20Good%20Man%20Jesus%20and%20the%20Scoundrel%20Christ%20Philip%20Pullman
+
+2. Christ the Lord — Anne Rice
+   Historical fiction novel exploring Jesus' life, focusing on his journey from Nazareth to Cana, amidst Roman rule and family pressures.
+   Amazon: https://www.amazon.com/s?k=Christ%20the%20Lord%20Anne%20Rice
+
+1. Barabbas — Pär Lagerkvist
+   Barabbas is the acquitted; the man whose life was exchanged for that of Jesus of Nazareth, crucified upon the hill of Golgotha.
+   Amazon: https://www.amazon.com/s?k=Barabbas%20P%C3%A4r%20Lagerkvist
+```
+
+```bash
+magpie search "science fiction detective"
+```
+
+```
+5. All the Colors of Darkness LP — Peter Robinson
+   Detective Inspector Annie Cabbot investigates a seemingly suicidal death that turns into a murder mystery, prompting her to call in vacationing Chief Inspector Alan Banks.
+   Amazon: https://www.amazon.com/s?k=All%20the%20Colors%20of%20Darkness%20LP%20Peter%20Robinson
+
+4. The Rediscovery of Man — Cordwainer Smith
+   Science fiction novel explores a future where an interstellar empire is ruled by virtual immortals who rely on genetically engineered underpeople to serve them.
+   Amazon: https://www.amazon.com/s?k=The%20Rediscovery%20of%20Man%20Cordwainer%20Smith
+
+3. Come, Hunt an Earthman — Philip E. High
+   A human hunter must navigate a deadly game where the prey is intelligent and cunning, turning the tables on traditional predator-prey dynamics.
+   Amazon: https://www.amazon.com/s?k=Come%2C%20Hunt%20an%20Earthman%20Philip%20E.%20High
+
+2. Pattern Recognition — William Gibson
+   A sensitivity-obsessed ad executive becomes entangled in a global quest for a mysterious filmmaker's lost footage.
+   Amazon: https://www.amazon.com/s?k=Pattern%20Recognition%20William%20Gibson
+
+1. The Caves of Steel — Isaac Asimov
+   Robot scientist is murdered on a Spacer ship, prompting detective Elijah Baley to team up with his robot partner R.
+   Amazon: https://www.amazon.com/s?k=The%20Caves%20of%20Steel%20Isaac%20Asimov
+```
 
 ---
 
@@ -24,37 +78,12 @@ Magpie works best for broad, taste-based queries (e.g. *“hopeful but not grimd
 
 Magpie:
 
-1. **Extracts books** from Reddit recommendation threads using an LLM  
-2. **Enriches metadata** via Google Books (descriptions, ISBNs, Amazon links)  
-3. **Enables semantic search** over those recommendations (not the whole internet)  
-4. **Deduplicates books** across threads and tracks where each one was mentioned  
+1. **Extracts books** from Reddit recommendation threads using an LLM
+2. **Enriches metadata** via Google Books (descriptions, ISBNs, Amazon links)
+3. **Enables semantic search** over those recommendations (not the whole internet)
+4. **Deduplicates books** across threads and tracks where each one was mentioned
 
 The search results are influenced both by **Google Books descriptions** *and* the **language used in the Reddit threads** where the books were recommended.
-
----
-
-## Example
-
-```bash
-magpie search "post-apocalyptic but hopeful, not grimdark" -n 1
-```
-
-```
-1. The Dog Stars — Peter Heller
-   Post-apocalyptic romance with suspenseful themes, as a survivor embarks on a perilous journey to find others in a world ravaged by global disaster.
-   Amazon: https://www.amazon.com/s?k=The+Dog+Stars+Peter+Heller
-```
----
-### What Magpie Is (and Isn’t) Good At
-
-**Great for**
-- Taste- and vibe-based searches (“hopeful but not grimdark dystopia”)
-- Finding overlooked or lesser-known books
-- Searching recommendations you already trust
-
-**Not great for**
-- Plot-level or ultra-specific queries (“space spiders”) unless they appear in the description or thread text
-- Finding books outside the threads you’ve added
 
 ---
 
